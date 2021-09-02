@@ -3,6 +3,7 @@ library(SummarizedExperiment)
 library(TCGAbiolinks)
 library(dplyr)
 library(DT)
+library(DESeq2)
 
 GOF.GSEA <- function(project_name, hugo_gene_name)
 {
@@ -142,14 +143,21 @@ GOF.GSEA <- function(project_name, hugo_gene_name)
   save(ColData, file = "ColData.rdata")
   # write.csv(ColData, file = "ColData.csv")
   
+  
 }
 
-GOF.GSEA(project_name = "PAAD", hugo_gene_name = "TP53")
+GOF.GSEA(project_name = "GBM", hugo_gene_name = "TP53")
 
 load("ColData.rdata")
 load("RowData.rdata")
 load("%s.muse.maf_%s.rdata")
 load("%s.muse.maf_case_list_unique.rdata")
+
+
+
+
+
+
 
 
 
@@ -309,23 +317,29 @@ dds <- DESeqDataSetFromMatrix(countData = as.matrix(RowData),
                               design= ~ IMPACT)
 
 dds$IMPACT <- relevel(dds$IMPACT, ref = "WT")
-dds <- DESeq(dds)
+dds2 <- DESeq(dds)
 
 
-resultsNames(dds) # lists the coefficients
-res1 <- results(dds, name="IMPACT_HIGH_vs_WT")
+resultsNames(dds2) # lists the coefficients
+res <- results(dds2, name = c(resultsNames(dds2)[2]))
 
-save(res1, file = "IMPACT_HIGH_vs_WT.rdata")
-write.csv(as.data.frame(res1), 
+save(res, file = sprintf("%s.rdata", resultsNames(dds2)[2]))
+
+write.csv(as.data.frame(res1),                                                                 
           file="IMPACT_HIGH_vs_WT.csv")
 
-res2 <- results(dds, name="IMPACT_MODERATE_vs_WT")
+
+
+
+
+
+res2 <- results(dds2, name="IMPACT_MODERATE_vs_WT")
 
 save(res2, file = "IMPACT_MODERATE_vs_WT.rdata")
 write.csv(as.data.frame(res2), 
           file="IMPACT_MODERATE_vs_WT.csv")
 
-res3 <- results(dds, name="IMPACT_MODERATE_vs_WT")
+res3 <- results(dds2, name="IMPACT_MODERATE_vs_WT")
 
 write.csv(as.data.frame(res3),
           file="IMPACT_MODERATE_vs_WT.csv")
