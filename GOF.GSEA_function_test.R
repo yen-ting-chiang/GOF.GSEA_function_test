@@ -5,7 +5,7 @@ library(dplyr)
 library(DT)
 library(DESeq2)
 
-GOF.GSEA <- function(project_name, hugo_gene_name)
+GOF.TCGA <- function(project_name, hugo_gene_name)
 {
   #TCGAbiolinks(TCGA RNAseq data download)------------------------------
   
@@ -312,6 +312,49 @@ load("ColData.rdata")
 library("DESeq2")
 #cts <- RowData_match
 
+
+
+
+GOF.deseq2 <- function(grouping_type, 
+                       conpairing_type, 
+                       reference_type,
+                       design_formula,
+                       dds_relevel)
+{
+  
+  dds <- DESeqDataSetFromMatrix(countData = as.matrix(RowData),
+                                colData = ColData,
+                                design = design_formula)
+  
+  dds_relevel <- relevel(dds_relevel, ref = reference_type)
+  dds2 <- DESeq(dds)
+  
+  
+  
+  res <- results(dds2, 
+                 name = sprintf("%s_%s_vs_%s", 
+                                grouping_type, 
+                                conpairing_type, 
+                                reference_type))
+  
+  save(res, file = sprintf("%s_%s_vs_%s.rdata", 
+                           grouping_type, 
+                           conpairing_type, 
+                           reference_type))
+  
+  # write.csv(as.data.frame(res),                                                                 
+  #           file="IMPACT_HIGH_vs_WT.csv")
+  
+}
+
+
+GOF.deseq2(grouping_type = "IMPACT", 
+           conpairing_type = "MODERATE", 
+           reference_type = "HIGH",
+           design_formula = ~ IMPACT,
+           dds_relevel = dds$IMPACT)
+
+
 dds <- DESeqDataSetFromMatrix(countData = as.matrix(RowData),
                               colData = ColData,
                               design= ~ IMPACT)
@@ -321,9 +364,9 @@ dds2 <- DESeq(dds)
 
 
 resultsNames(dds2) # lists the coefficients
-res <- results(dds2, name = c(resultsNames(dds2)[2]))
+res <- results(dds2, name = "IMPACT_HIGH_vs_WT")
 
-save(res, file = sprintf("%s.rdata", resultsNames(dds2)[2]))
+save(res, file = "IMPACT_HIGH_vs_WT.rdata")
 
 write.csv(as.data.frame(res1),                                                                 
           file="IMPACT_HIGH_vs_WT.csv")
