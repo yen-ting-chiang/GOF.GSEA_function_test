@@ -17,8 +17,7 @@ GOF.TCGA <- function(project_name,
                      grouping_type, 
                      conpairing_type, 
                      reference_type, 
-                     design_formula,
-                     GSEA_collections)
+                     design_formula)
 {
   #TCGAbiolinks(TCGA RNAseq data download)------------------------------
   
@@ -210,42 +209,48 @@ GOF.TCGA <- function(project_name,
   ## feature 3: decreasing order
   geneList_ENTREZ <- sort(geneList_ENTREZ, decreasing = TRUE)
   
-  m_t2g <- msigdbr(species = "Homo sapiens", 
-                   category = GSEA_collections) %>% 
-    dplyr::select(gs_name, entrez_gene)
+  collections <- c("C4", "C5", "C6", "C7", "C8")
+  for(i in collections)
+  {
+    m_t2g <- msigdbr(species = "Homo sapiens", 
+                     category = i) %>% 
+      dplyr::select(gs_name, entrez_gene)
+    
+    run.GSEA=GSEA(geneList_ENTREZ, 
+                  exponent = 1,
+                  minGSSize = 25,
+                  maxGSSize = 500,
+                  eps = 1e-10, 
+                  pvalueCutoff = 0.25,
+                  pAdjustMethod = "BH",
+                  TERM2GENE= m_t2g,
+                  TERM2NAME = NA,
+                  verbose = TRUE,
+                  seed = FALSE,
+                  by = "fgsea")
+    
+    save(run.GSEA,
+         file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s.rdata",
+                        i))
+    
+    pos_NES <- as.data.frame(run.GSEA@result) %>% 
+      filter(NES >= 0) %>% 
+      arrange(desc(NES))
+    
+    write.csv(pos_NES, 
+              file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_positive.csv", 
+                             i))
+    
+    neg_NES <- as.data.frame(run.GSEA@result) %>% 
+      filter(NES < 0) %>% 
+      arrange(NES)
+    
+    write.csv(neg_NES, 
+              file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_negative.csv", 
+                             i))
+  }
   
-  run.GSEA=GSEA(geneList_ENTREZ, 
-                exponent = 1,
-                minGSSize = 25,
-                maxGSSize = 500,
-                eps = 1e-10, 
-                pvalueCutoff = 0.25,
-                pAdjustMethod = "BH",
-                TERM2GENE= m_t2g,
-                TERM2NAME = NA,
-                verbose = TRUE,
-                seed = FALSE,
-                by = "fgsea")
   
-  save(run.GSEA,
-       file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s.rdata",
-                      GSEA_collections))
-  
-  pos_NES <- as.data.frame(run.GSEA@result) %>% 
-    filter(NES >= 0) %>% 
-    arrange(desc(NES))
-  
-  write.csv(pos_NES, 
-            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_positive.csv", 
-                           GSEA_collections))
-  
-  neg_NES <- as.data.frame(run.GSEA@result) %>% 
-    filter(NES < 0) %>% 
-    arrange(NES)
-  
-  write.csv(neg_NES, 
-            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_negative.csv", 
-                           GSEA_collections))
 }
 
 GOF.TCGA(project_name = "GBM", 
@@ -253,8 +258,7 @@ GOF.TCGA(project_name = "GBM",
          grouping_type = "IMPACT", 
          conpairing_type = "MODERATE", 
          reference_type = "HIGH",
-         design_formula = ~ IMPACT,
-         GSEA_collections = "C1")
+         design_formula = ~ IMPACT)
 
 
 load("ColData.rdata")
