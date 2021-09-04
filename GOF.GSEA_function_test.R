@@ -3,9 +3,22 @@ library(SummarizedExperiment)
 library(TCGAbiolinks)
 library(dplyr)
 library(DT)
+
 library(DESeq2)
 
-GOF.TCGA <- function(project_name, hugo_gene_name)
+library(AnnotationHub)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(DOSE)
+library(msigdbr)
+
+GOF.TCGA <- function(project_name, 
+                     hugo_gene_name, 
+                     grouping_type, 
+                     conpairing_type, 
+                     reference_type, 
+                     design_formula,
+                     GSEA_collections)
 {
   #TCGAbiolinks(TCGA RNAseq data download)------------------------------
   
@@ -47,7 +60,7 @@ GOF.TCGA <- function(project_name, hugo_gene_name)
     mutate(Tumor_Case_Barcode=gsub("\\S-\\S\\S\\S-\\S\\S\\S\\S-\\S\\S$", 
                                    "",
                                    Tumor_Sample_Barcode))%>%
-    select(Tumor_Case_Barcode,
+    dplyr::select(Tumor_Case_Barcode,
            Protein_position,
            HGVSp_Short,
            Exon_Number,
@@ -63,7 +76,7 @@ GOF.TCGA <- function(project_name, hugo_gene_name)
     mutate(Tumor_Case_Barcode=gsub("\\S-\\S\\S\\S-\\S\\S\\S\\S-\\S\\S$", 
                                    "",
                                    Tumor_Sample_Barcode))%>%
-    select(Tumor_Case_Barcode)
+    dplyr::select(Tumor_Case_Barcode)
   
   muse.maf_case_list_unique <- muse.maf_case_list
   muse.maf_case_list_unique=unique(muse.maf_case_list_unique)
@@ -84,14 +97,14 @@ GOF.TCGA <- function(project_name, hugo_gene_name)
                                                   (mutation_list)]
   
   save(RowData,
-       file = "RowData.rdata")
+       file = sprintf("%s.%s.RowData.rdata", project_name, hugo_gene_name))
   save(muse.maf_target_gene,
        file = sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
   save(muse.maf_case_list_unique,
        file = sprintf("%s.muse.maf_case_list_unique.rdata", project_name))
   # write.csv(RowData, file = "RowData.csv")
   
-  # load("RowData.rdata")
+  # load(sprintf("%s.%s.RowData.rdata", project_name, hugo_gene_name))
   # load(sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
   # load(sprintf("%s.muse.maf_case_list_unique.rdata", project_name))
   
@@ -113,14 +126,14 @@ GOF.TCGA <- function(project_name, hugo_gene_name)
   DF2 <- data.frame(mutation_list)
   DF2.1 <- muse.maf_target_gene %>% 
     filter(duplicated(Tumor_Case_Barcode) == TRUE)%>% 
-    select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT)%>% 
+    dplyr::select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT)%>% 
     mutate(Protein_position = "multiple", 
            HGVSp_Short = "multiple", 
            IMPACT = "multiple")
   
   #create the single-mutation sample Coldata -----------
   DF3 <-muse.maf_target_gene%>% 
-    select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT) %>% 
+    dplyr::select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT) %>% 
     filter(Tumor_Case_Barcode %in% DF2.1[,1, drop = TRUE] == FALSE)
   
   
@@ -140,24 +153,114 @@ GOF.TCGA <- function(project_name, hugo_gene_name)
   ColData <- DF5 %>% 
     filter(Tumor_Case_Barcode %in% colnames(RowData) == TRUE)
   
-  save(ColData, file = "ColData.rdata")
+  save(ColData, file = sprintf("%s.%s.ColData.rdata", project_name, 
+                               hugo_gene_name))
   # write.csv(ColData, file = "ColData.csv")
   
   
+  #launch DESeq2 analysis---------------------------------------------
+  dds <- DESeqDataSetFromMatrix(countData = as.matrix(RowData),
+                                colData = ColData,
+                                design = design_formula)
+  
+  dds$IMPACT <- relevel(dds$IMPACT, ref = reference_type)
+  dds2 <- DESeq(dds)
+  
+  res <- results(dds2, 
+                 name = sprintf("%s_%s_vs_%s", 
+                                grouping_type, 
+                                conpairing_type, 
+                                reference_type))
+  
+  save(res, file = sprintf("%s_%s_vs_%s.rdata", 
+                           grouping_type, 
+                           conpairing_type, 
+                           reference_type))
+  
+  write.csv(as.data.frame(res),
+            file= sprintf("%s_%s_vs_%s.csv", 
+                          grouping_type, 
+                          conpairing_type, 
+                          reference_type))
+  
+  
+  #Launch GSEA analysis----------------------------------
+  
+  D <- as.data.frame(res)
+  
+  D2=D%>%
+    dplyr::filter(grepl('ENSG', rownames(D)))%>%
+    dplyr::filter(is.na(log2FoldChange)==FALSE)
+  
+  D2_ENTREZID <- bitr(rownames(D2), fromType = "ENSEMBL",
+                      toType = c("ENTREZID"),
+                      OrgDb = org.Hs.eg.db,
+                      drop = TRUE)
+  
+  D2 <- tibble::rownames_to_column(D2, "ENSEMBL")
+  
+  D3=right_join(D2,D2_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+  
+  ## feature 1: numeric vector
+  geneList_ENTREZ <- D3[,3]
+  
+  ## feature 2: named vector
+  names(geneList_ENTREZ) <- D3[,8]
+  
+  ## feature 3: decreasing order
+  geneList_ENTREZ <- sort(geneList_ENTREZ, decreasing = TRUE)
+  
+  m_t2g <- msigdbr(species = "Homo sapiens", 
+                   category = GSEA_collections) %>% 
+    dplyr::select(gs_name, entrez_gene)
+  
+  run.GSEA=GSEA(geneList_ENTREZ, 
+                exponent = 1,
+                minGSSize = 25,
+                maxGSSize = 500,
+                eps = 1e-10, 
+                pvalueCutoff = 0.25,
+                pAdjustMethod = "BH",
+                TERM2GENE= m_t2g,
+                TERM2NAME = NA,
+                verbose = TRUE,
+                seed = FALSE,
+                by = "fgsea")
+  
+  save(run.GSEA,
+       file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s.rdata",
+                      GSEA_collections))
+  
+  pos_NES <- as.data.frame(run.GSEA@result) %>% 
+    filter(NES >= 0) %>% 
+    arrange(desc(NES))
+  
+  write.csv(pos_NES, 
+            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_positive.csv", 
+                           GSEA_collections))
+  
+  neg_NES <- as.data.frame(run.GSEA@result) %>% 
+    filter(NES < 0) %>% 
+    arrange(NES)
+  
+  write.csv(neg_NES, 
+            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_negative.csv", 
+                           GSEA_collections))
 }
 
-GOF.GSEA(project_name = "GBM", hugo_gene_name = "TP53")
+GOF.TCGA(project_name = "GBM", 
+         hugo_gene_name = "TP53",
+         grouping_type = "IMPACT", 
+         conpairing_type = "MODERATE", 
+         reference_type = "HIGH",
+         design_formula = ~ IMPACT,
+         GSEA_collections = "C1")
+
 
 load("ColData.rdata")
-load("RowData.rdata")
+load(sprintf("%s.%s.RowData.rdata", project_name, hugo_gene_name))
 load("%s.muse.maf_%s.rdata")
 load("%s.muse.maf_case_list_unique.rdata")
-
-
-
-
-
-
 
 
 
@@ -204,7 +307,7 @@ PAAD.muse.maf_TP53_clean=PAAD.muse.maf %>%
   mutate(Tumor_Case_Barcode=gsub("\\S-\\S\\S\\S-\\S\\S\\S\\S-\\S\\S$", 
                                  "",
                                  Tumor_Sample_Barcode))%>%
-  select(Tumor_Case_Barcode,
+  dplyr::select(Tumor_Case_Barcode,
          Protein_position,
          HGVSp_Short,
          Exon_Number,
@@ -223,7 +326,7 @@ PAAD.muse.maf_case_list=PAAD.muse.maf%>%
   mutate(Tumor_Case_Barcode=gsub("\\S-\\S\\S\\S-\\S\\S\\S\\S-\\S\\S$", 
                                  "",
                                  Tumor_Sample_Barcode))%>%
-  select(Tumor_Case_Barcode)
+  dplyr::select(Tumor_Case_Barcode)
 
 PAAD.muse.maf_case_list_unique <- PAAD.muse.maf_case_list
 PAAD.muse.maf_case_list_unique=unique(PAAD.muse.maf_case_list_unique)
@@ -274,7 +377,7 @@ colnames(DF1.1)[1] <- "Tumor_Case_Barcode"
 DF2 <- data.frame(mutation_list)
 DF2.1 <- PAAD.muse.maf_TP53_clean %>% 
   filter(duplicated(Tumor_Case_Barcode) == TRUE)%>% 
-  select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT)%>% 
+  dplyr::select(Tumor_Case_Barcode, Protein_position, HGVSp_Short, IMPACT)%>% 
   mutate(Protein_position = "DB", HGVSp_Short = "DB", IMPACT = "DB")
 
 #create the TP53-single-mutation sample Coldata -----------
@@ -389,30 +492,90 @@ write.csv(as.data.frame(res3),
 
 #launch GSEA analysis----------------------------------------------------
 
-library(dplyr)
+
 library(AnnotationHub)
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(DOSE)
 library(msigdbr)
 
-D <- as.data.frame(res2)
-head(D)
-str(D)
-summary(D)
+load("IMPACT_MODERATE_vs_HIGH.rdata")
 
-names(D)[1] <- "ENSEMBL_ID"
+
+GOF.GSEA <- function(GSEA_collections)
+{
+  D <- as.data.frame(res)
+  
+  D2=D%>%
+    dplyr::filter(grepl('ENSG', rownames(D)))%>%
+    dplyr::filter(is.na(log2FoldChange)==FALSE)
+  
+  D2_ENTREZID <- bitr(rownames(D2), fromType = "ENSEMBL",
+                      toType = c("ENTREZID"),
+                      OrgDb = org.Hs.eg.db,
+                      drop = TRUE)
+  
+  D2 <- tibble::rownames_to_column(D2, "ENSEMBL")
+  
+  D3=right_join(D2,D2_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+  
+  ## feature 1: numeric vector
+  geneList_ENTREZ <- D3[,3]
+  
+  ## feature 2: named vector
+  names(geneList_ENTREZ) <- D3[,8]
+  
+  ## feature 3: decreasing order
+  geneList_ENTREZ <- sort(geneList_ENTREZ, decreasing = TRUE)
+  
+  m_t2g <- msigdbr(species = "Homo sapiens", 
+                   category = GSEA_collections) %>% 
+    dplyr::select(gs_name, entrez_gene)
+  
+  run.GSEA=GSEA(geneList_ENTREZ, 
+                   exponent = 1,
+                   minGSSize = 25,
+                   maxGSSize = 500,
+                   eps = 1e-10, 
+                   pvalueCutoff = 0.25,
+                   pAdjustMethod = "BH",
+                   TERM2GENE= m_t2g,
+                   TERM2NAME = NA,
+                   verbose = TRUE,
+                   seed = FALSE,
+                   by = "fgsea")
+  
+  save(run.GSEA,
+       file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s.rdata",
+                      GSEA_collections))
+  
+  pos_NES <- as.data.frame(run.GSEA@result) %>% 
+    filter(NES >= 0) %>% 
+    arrange(desc(NES))
+  
+  write.csv(pos_NES, 
+            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_positive.csv", 
+                           GSEA_collections))
+  
+  neg_NES <- as.data.frame(run.GSEA@result) %>% 
+    filter(NES < 0) %>% 
+    arrange(NES)
+  
+  write.csv(neg_NES, 
+            file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_negative.csv", 
+                           GSEA_collections))
+}
+
+GOF.GSEA(GSEA_collections = "C6")
+
+
+D <- as.data.frame(res)
+
 D2=D%>%
-  dplyr::filter(ENSEMBL_ID !="__no_feature"&
-                  ENSEMBL_ID !="__ambiguous"& 
-                  ENSEMBL_ID !="__too_low_aQual"&
-                  ENSEMBL_ID !="__not_aligned"&
-                  ENSEMBL_ID !="__alignment_not_unique")%>%
-  dplyr::filter(is.na(log2FoldChange)==FALSE)%>%
-  dplyr::filter(is.na(padj)==FALSE)
+  dplyr::filter(grepl('ENSG', rownames(D)))%>%
+  dplyr::filter(is.na(log2FoldChange)==FALSE)
 
-
-D2_ENTREZID<- bitr(rownames(D2), fromType = "ENSEMBL",
+D2_ENTREZID <- bitr(rownames(D2), fromType = "ENSEMBL",
                    toType = c("ENTREZID"),
                    OrgDb = org.Hs.eg.db,
                    drop = TRUE)
@@ -420,9 +583,7 @@ D2_ENTREZID<- bitr(rownames(D2), fromType = "ENSEMBL",
 D2 <- tibble::rownames_to_column(D2, "ENSEMBL")
 
 D3=right_join(D2,D2_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
-head(D3)
-str(D3)
-summary(D3)
+
 
 ## feature 1: numeric vector
 geneList_ENTREZ <- D3[,3]
@@ -442,7 +603,7 @@ head(m_t2g)
 H=GSEA(
   geneList_ENTREZ,
   exponent = 1,
-  minGSSize = 15,
+  minGSSize = 25,
   maxGSSize = 500,
   eps = 1e-10,
   pvalueCutoff = 0.25,
@@ -453,12 +614,9 @@ H=GSEA(
   seed = FALSE,
   by = "fgsea"
 )
-write.table(as.data.frame(H@result), 
-            file="PAAD_IMPACT_MODERATE_vs_WT_ENTERZ_padjNAcut_H_25.txt",
-            sep="\t", 
-            row.names = FALSE,
-            col.names = TRUE,
-            quote=FALSE)
+
+write.csv(as.data.frame(H@result), 
+            file="GBM_IMPACT_MODERATE_vs_HIGH_H.csv")
 
 
 # launch DEG analysis-----------------------------------------------------
