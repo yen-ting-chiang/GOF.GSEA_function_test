@@ -152,9 +152,12 @@ GOF.TCGA <- function(project_name,
   ColData <- DF5 %>% 
     filter(Tumor_Case_Barcode %in% colnames(RowData) == TRUE)
   
-  save(ColData, file = sprintf("%s.%s.ColData.rdata", project_name, 
+  save(ColData, file = sprintf("%s.%s.ColData.rdata", 
+                               project_name, 
                                hugo_gene_name))
-  # write.csv(ColData, file = "ColData.csv")
+  write.csv(ColData, file = sprintf("%s.%s.ColData.csv", 
+                                    project_name,
+                                    hugo_gene_name))
   
   
   #launch DESeq2 analysis---------------------------------------------
@@ -171,16 +174,20 @@ GOF.TCGA <- function(project_name,
                                 conpairing_type, 
                                 reference_type))
   
-  save(res, file = sprintf("%s_%s_vs_%s.rdata", 
+  save(res, file = sprintf("deseq2_%s_%s_%s_%s_vs_%s.rdata", 
+                           project_name,
+                           hugo_gene_name,
                            grouping_type, 
                            conpairing_type, 
                            reference_type))
   
   write.csv(as.data.frame(res),
-            file= sprintf("%s_%s_vs_%s.csv", 
-                          grouping_type, 
-                          conpairing_type, 
-                          reference_type))
+            file = sprintf("deseq2_%s_%s_%s_%s_vs_%s.csv", 
+                           project_name,
+                           hugo_gene_name,
+                           grouping_type, 
+                           conpairing_type, 
+                           reference_type))
   
   
   #Launch GSEA analysis----------------------------------
@@ -209,7 +216,7 @@ GOF.TCGA <- function(project_name,
   ## feature 3: decreasing order
   geneList_ENTREZ <- sort(geneList_ENTREZ, decreasing = TRUE)
   
-  collections <- c("C4", "C5", "C6", "C7", "C8")
+  collections <- c("H", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")
   for(i in collections)
   {
     m_t2g <- msigdbr(species = "Homo sapiens", 
@@ -230,7 +237,12 @@ GOF.TCGA <- function(project_name,
                   by = "fgsea")
     
     save(run.GSEA,
-         file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s.rdata",
+         file = sprintf("%s_%s_%s_%s_vs_%s_%s.rdata",
+                        project_name,
+                        hugo_gene_name,
+                        grouping_type, 
+                        conpairing_type, 
+                        reference_type,
                         i))
     
     pos_NES <- as.data.frame(run.GSEA@result) %>% 
@@ -238,7 +250,12 @@ GOF.TCGA <- function(project_name,
       arrange(desc(NES))
     
     write.csv(pos_NES, 
-              file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_positive.csv", 
+              file = sprintf("%s_%s_%s_%s_vs_%s_%s_positive.csv",
+                             project_name,
+                             hugo_gene_name,
+                             grouping_type, 
+                             conpairing_type, 
+                             reference_type,
                              i))
     
     neg_NES <- as.data.frame(run.GSEA@result) %>% 
@@ -246,18 +263,23 @@ GOF.TCGA <- function(project_name,
       arrange(NES)
     
     write.csv(neg_NES, 
-              file = sprintf("GBM_IMPACT_MODERATE_vs_HIGH_%s_negative.csv", 
+              file = sprintf("%s_%s_%s_%s_vs_%s_%s_negative.csv",
+                             project_name,
+                             hugo_gene_name,
+                             grouping_type, 
+                             conpairing_type, 
+                             reference_type,
                              i))
   }
   
   
 }
 
-GOF.TCGA(project_name = "GBM", 
+GOF.TCGA(project_name = "DLBC", 
          hugo_gene_name = "TP53",
          grouping_type = "IMPACT", 
          conpairing_type = "MODERATE", 
-         reference_type = "HIGH",
+         reference_type = "WT",
          design_formula = ~ IMPACT)
 
 
