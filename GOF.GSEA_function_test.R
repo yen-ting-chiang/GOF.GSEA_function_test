@@ -270,17 +270,162 @@ GOF.TCGA <- function(project_name,
                              conpairing_type, 
                              reference_type,
                              i))
+    
   }
   
+  # launch DEG analysis-----------------------------------------------------
+  
+  deg <- as.data.frame(res)
+  
+  #positive
+  deg2=deg%>%
+    dplyr::filter(grepl('ENSG', rownames(deg)))%>%
+    dplyr::filter(is.na(log2FoldChange)==FALSE)%>%
+    dplyr::filter(is.na(padj)==FALSE)%>%
+    dplyr::filter(log2FoldChange>=0.58)%>%
+    dplyr::filter(padj<0.05)
+  deg2_ENTREZID <- bitr(rownames(deg2), fromType = "ENSEMBL",
+                        toType = c("ENTREZID"),
+                        OrgDb = org.Hs.eg.db,
+                        drop = TRUE)
+  deg2_SYMBOL <- bitr(rownames(deg2), fromType = "ENSEMBL",
+                      toType = c("SYMBOL"),
+                      OrgDb = org.Hs.eg.db,
+                      drop = TRUE)
+  deg2 <- tibble::rownames_to_column(deg2, "ENSEMBL")
+  deg3=left_join(deg2,deg2_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+  deg4=left_join(deg3,deg2_SYMBOL, by=c("ENSEMBL"="ENSEMBL"))
+  deg4<- deg4[ , c(1,8, 9, 2:7)]
+  deg5=deg4%>%
+    arrange(desc(log2FoldChange))
+  
+  save(deg5, file = sprintf("DEG_%s_%s_%s_%s_vs_%s_positive.rdata",
+                            project_name,
+                            hugo_gene_name,
+                            grouping_type, 
+                            conpairing_type, 
+                            reference_type))
+  write.csv(deg5,
+            file=sprintf("DEG_%s_%s_%s_%s_vs_%s_positive.csv",
+                         project_name,
+                         hugo_gene_name,
+                         grouping_type, 
+                         conpairing_type, 
+                         reference_type))
+  
+  #negative
+  deg2n=deg%>%
+    dplyr::filter(grepl('ENSG', rownames(deg)))%>%
+    dplyr::filter(is.na(log2FoldChange)==FALSE)%>%
+    dplyr::filter(is.na(padj)==FALSE)%>%
+    dplyr::filter(log2FoldChange <= -0.58)%>%
+    dplyr::filter(padj<0.05)
+  deg2n_ENTREZID <- bitr(rownames(deg2n), fromType = "ENSEMBL",
+                         toType = c("ENTREZID"),
+                         OrgDb = org.Hs.eg.db,
+                         drop = TRUE)
+  deg2n_SYMBOL <- bitr(rownames(deg2n), fromType = "ENSEMBL",
+                       toType = c("SYMBOL"),
+                       OrgDb = org.Hs.eg.db,
+                       drop = TRUE)
+  deg2n <- tibble::rownames_to_column(deg2n, "ENSEMBL")
+  deg3n=left_join(deg2n,deg2n_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+  deg4n=left_join(deg3n,deg2n_SYMBOL, by=c("ENSEMBL"="ENSEMBL"))
+  deg4n<- deg4n[ , c(1,8, 9, 2:7)]
+  deg5n=deg4n%>%
+    arrange(log2FoldChange)
+  
+  save(deg5n, file = sprintf("DEG_%s_%s_%s_%s_vs_%s_negative.rdata",
+                             project_name,
+                             hugo_gene_name,
+                             grouping_type, 
+                             conpairing_type, 
+                             reference_type))
+  write.csv(deg5n,
+            file=sprintf("DEG_%s_%s_%s_%s_vs_%s_negative.csv",
+                         project_name,
+                         hugo_gene_name,
+                         grouping_type, 
+                         conpairing_type, 
+                         reference_type))
   
 }
 
-GOF.TCGA(project_name = "DLBC", 
+GOF.TCGA(project_name = "GBM", 
          hugo_gene_name = "TP53",
          grouping_type = "IMPACT", 
          conpairing_type = "MODERATE", 
          reference_type = "WT",
          design_formula = ~ IMPACT)
+
+
+
+#summarize DEG data-------------------------------------------------------
+
+DEG_GBM_TP53_IMPACT_MODERATE_vs_WT_positive <- 
+  read.csv("DEG_GBM_TP53_IMPACT_MODERATE_vs_WT_positive.csv")
+DEG_PAAD_TP53_IMPACT_MODERATE_vs_WT_positive <- 
+  read.csv("DEG_PAAD_TP53_IMPACT_MODERATE_vs_WT_positive.csv")
+DEG_ESCA_TP53_IMPACT_MODERATE_vs_WT_positive <- 
+  read.csv("DEG_ESCA_TP53_IMPACT_MODERATE_vs_WT_positive.csv")
+
+GBM_M = DEG_GBM_TP53_IMPACT_MODERATE_vs_WT_positive %>% 
+  mutate(cancer_type = "GBM") %>% 
+  distinct(ENSEMBL, .keep_all = TRUE)
+PAAD_M = DEG_PAAD_TP53_IMPACT_MODERATE_vs_WT_positive %>% 
+  mutate(cancer_type = "PAAD")%>% 
+  distinct(ENSEMBL, .keep_all = TRUE)
+ESCA_M = DEG_ESCA_TP53_IMPACT_MODERATE_vs_WT_positive %>% 
+  mutate(cancer_type = "ESCA")%>% 
+  distinct(ENSEMBL, .keep_all = TRUE)
+
+combine1 = bind_rows(GBM_M, PAAD_M, ESCA_M)
+
+DEG_number_ENTREZID = combine1 %>% 
+  group_by(ENTREZID) %>%
+  summarise(n()) %>% 
+  filter(is.na(ENTREZID) == FALSE) %>% 
+  arrange(desc(n()))
+
+DEG_number_SYMBOL = combine1 %>% 
+  group_by(SYMBOL) %>%
+  summarise(n()) %>% 
+  filter(is.na(SYMBOL) == FALSE) %>% 
+  arrange(desc(n()))
+
+
+#summarize GSEA data-------------------------------------------------------
+
+GBM_TP53_IMPACT_MODERATE_vs_WT_C5_positive <- 
+  read.csv("GBM_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv")
+PAAD_TP53_IMPACT_MODERATE_vs_WT_C5_positive <- 
+  read.csv("PAAD_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv")
+ESCA_TP53_IMPACT_MODERATE_vs_WT_C5_positive <- 
+  read.csv("ESCA_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv")
+
+GBM_M = GBM_TP53_IMPACT_MODERATE_vs_WT_C5_positive %>% 
+  mutate(cancer_type = "GBM")
+PAAD_M = PAAD_TP53_IMPACT_MODERATE_vs_WT_C5_positive %>% 
+  mutate(cancer_type = "PAAD")
+ESCA_M = ESCA_TP53_IMPACT_MODERATE_vs_WT_C5_positive %>% 
+  mutate(cancer_type = "ESCA")
+
+combine1 = bind_rows(GBM_M, PAAD_M, ESCA_M)
+
+GSEA_number = combine1 %>% 
+  group_by(ID) %>%
+  summarise(n())%>% 
+  arrange(desc(n()))
+
+DEG_number_SYMBOL = combine1 %>% 
+  group_by(SYMBOL) %>%
+  summarise(n()) %>% 
+  filter(is.na(SYMBOL) == FALSE) %>% 
+  arrange(desc(n()))
+
+
+
+
 
 
 load("ColData.rdata")
@@ -651,65 +796,57 @@ library(clusterProfiler)
 library(org.Hs.eg.db)
 library(DOSE)
 
-d <- read.csv("IMPACT_HIGH_vs_WT.csv")
-head(d)
-str(d)
-summary(d)
+deg <- read.csv("IMPACT_HIGH_vs_WT.csv")
+deg <- as.data.frame(res)
 
-names(d)[1] <- "ENSEMBL_ID"
+names(deg)[1] <- "ENSEMBL_ID"
 
 #positive
-d2=d%>%
-  dplyr::filter(ENSEMBL_ID !="__no_feature"&
-                  ENSEMBL_ID !="__ambiguous"& 
-                  ENSEMBL_ID !="__too_low_aQual"&
-                  ENSEMBL_ID !="__not_aligned"&
-                  ENSEMBL_ID !="__alignment_not_unique")%>%
+deg2=deg%>%
+  dplyr::filter(grepl('ENSG', rownames(deg)))%>%
   dplyr::filter(is.na(log2FoldChange)==FALSE)%>%
   dplyr::filter(is.na(padj)==FALSE)%>%
-  dplyr::filter(log2FoldChange>=0)%>%
+  dplyr::filter(log2FoldChange>=0.58)%>%
   dplyr::filter(padj<0.05)
-d2_ENTREZID<- bitr(d2[,1], fromType = "ENSEMBL",
+deg2_ENTREZID <- bitr(rownames(deg2), fromType = "ENSEMBL",
                    toType = c("ENTREZID"),
                    OrgDb = org.Hs.eg.db,
                    drop = TRUE)
-d2_SYMBOL<- bitr(d2[,1], fromType = "ENSEMBL",
+deg2_SYMBOL <- bitr(rownames(deg2), fromType = "ENSEMBL",
                  toType = c("SYMBOL"),
                  OrgDb = org.Hs.eg.db,
                  drop = TRUE)
-d3=left_join(d2,d2_ENTREZID, by=c("ENSEMBL_ID"="ENSEMBL"))
-d4=left_join(d3,d2_SYMBOL, by=c("ENSEMBL_ID"="ENSEMBL"))
-d4<- d4[ , c(1,8, 9, 2:7)]
-d5=d4%>%
+deg2 <- tibble::rownames_to_column(deg2, "ENSEMBL")
+deg3=left_join(deg2,deg2_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+deg4=left_join(deg3,deg2_SYMBOL, by=c("ENSEMBL"="ENSEMBL"))
+deg4<- deg4[ , c(1,8, 9, 2:7)]
+deg5=deg4%>%
   arrange(desc(log2FoldChange))
-write.csv(d5,file="PAAD_IMPACT_HIGH_vs_WT_DEG_pos_unfilter.csv",
-          row.names = FALSE,
-          quote=FALSE)
+
+save(deg5, file = )
+write.csv(deg5,
+          file="PAAD_IMPACT_HIGH_vs_WT_DEG_pos_unfilter.csv")
 
 #negative
-d12=d%>%
-  dplyr::filter(ENSEMBL_ID !="__no_feature"&
-                  ENSEMBL_ID !="__ambiguous"& 
-                  ENSEMBL_ID !="__too_low_aQual"&
-                  ENSEMBL_ID !="__not_aligned"&
-                  ENSEMBL_ID !="__alignment_not_unique")%>%
+deg2n=deg%>%
+  dplyr::filter(grepl('ENSG', rownames(deg)))%>%
   dplyr::filter(is.na(log2FoldChange)==FALSE)%>%
   dplyr::filter(is.na(padj)==FALSE)%>%
-  dplyr::filter(log2FoldChange<=0)%>%
+  dplyr::filter(log2FoldChange <= -0.58)%>%
   dplyr::filter(padj<0.05)
-d12_ENTREZID<- bitr(d12[,1], fromType = "ENSEMBL",
-                    toType = c("ENTREZID"),
+deg2n_ENTREZID <- bitr(rownames(deg2n), fromType = "ENSEMBL",
+                      toType = c("ENTREZID"),
+                      OrgDb = org.Hs.eg.db,
+                      drop = TRUE)
+deg2n_SYMBOL <- bitr(rownames(deg2n), fromType = "ENSEMBL",
+                    toType = c("SYMBOL"),
                     OrgDb = org.Hs.eg.db,
                     drop = TRUE)
-d12_SYMBOL<- bitr(d12[,1], fromType = "ENSEMBL",
-                  toType = c("SYMBOL"),
-                  OrgDb = org.Hs.eg.db,
-                  drop = TRUE)
-d13=left_join(d12,d12_ENTREZID, by=c("ENSEMBL_ID"="ENSEMBL"))
-d14=left_join(d13,d12_SYMBOL, by=c("ENSEMBL_ID"="ENSEMBL"))
-d14<- d14[ , c(1,8, 9, 2:7)]
-d15=d14%>%
+deg2n <- tibble::rownames_to_column(deg2n, "ENSEMBL")
+deg3n=left_join(deg2n,deg2n_ENTREZID, by=c("ENSEMBL"="ENSEMBL"))
+deg4n=left_join(deg3n,deg2n_SYMBOL, by=c("ENSEMBL"="ENSEMBL"))
+deg4n<- deg4n[ , c(1,8, 9, 2:7)]
+deg5n=deg4n%>%
   arrange(log2FoldChange)
-write.csv(d15,file="PAAD_IMPACT_HIGH_vs_WT_DEG_neg_unfilter.csv",
-          row.names = FALSE,
-          quote=FALSE)
+write.csv(deg5n,
+          file="PAAD_IMPACT_HIGH_vs_WT_DEG_pos_unfilter.csv")
