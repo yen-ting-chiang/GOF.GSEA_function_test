@@ -1,9 +1,28 @@
 
+install.packages("BiocManager")
+BiocManager::install("TCGAbiolinks")
+browseVignettes("TCGAbiolinks")
+
+BiocManager::install("SummarizedExperiment")
+install.packages("DT")
+install.packages("dplyr")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+
+
+BiocManager::install("AnnotationHub")
+BiocManager::install("clusterProfiler")
+BiocManager::install("org.Hs.eg.db")
+BiocManager::install("DOSE")
+BiocManager::install("msigdbr")
+
 library(SummarizedExperiment)
 library(TCGAbiolinks)
 library(dplyr)
 library(DT)
-
 library(DESeq2)
 
 library(AnnotationHub)
@@ -11,6 +30,11 @@ library(clusterProfiler)
 library(org.Hs.eg.db)
 library(DOSE)
 library(msigdbr)
+
+# Check memory limit
+memory.limit()
+# Change memory limit
+memory.limit(size = 28000)
 
 GOF.TCGA <- function(project_name, 
                      hugo_gene_name, 
@@ -351,7 +375,7 @@ GOF.TCGA <- function(project_name,
   
 }
 
-GOF.TCGA(project_name = "GBM", 
+GOF.TCGA(project_name = "UCEC", 
          hugo_gene_name = "TP53",
          grouping_type = "IMPACT", 
          conpairing_type = "MODERATE", 
