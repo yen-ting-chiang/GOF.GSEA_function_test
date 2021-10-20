@@ -4,16 +4,16 @@ library(dplyr)
 library(DT)
 
 
-# TCGA_project_list <- c("ACC", "BLCA", "LGG", "BRCA", 
-#                        "CESC", "CHOL", "COAD", "LAML",
-#                        "ESCA", "GBM", "HNSC", "KICH", 
-#                        "KIRC", "KIRP", "LIHC", "LUAD", "LUSC", 
-#                        "DLBC", "MESO", "OV", "PAAD", 
-#                        "PCPG", "PRAD", "READ", "SARC", "SKCM", 
-#                        "STAD", "TGCT", "THYM", "THCA", "UCS", 
-#                        "UCEC", "UVM")
+TCGA_project_list <- c("ACC", "BLCA", "LGG", "BRCA",
+                       "CESC", "CHOL", "COAD", "LAML",
+                       "ESCA", "GBM", "HNSC", "KICH",
+                       "KIRC", "KIRP", "LIHC", "LUAD", "LUSC",
+                       "DLBC", "MESO", "OV", "PAAD",
+                       "PCPG", "PRAD", "READ", "SARC", "SKCM",
+                       "STAD", "TGCT", "THYM", "THCA", "UCS",
+                       "UCEC", "UVM")
 
-TCGA_project_list <- c("DLBC", "GBM")
+# TCGA_project_list <- c("LGG")
 
 GOF.TCGA.MakeColRow <- function(project_name, 
                                 hugo_gene_name)
@@ -101,7 +101,7 @@ GOF.TCGA.MakeColRow <- function(project_name,
        file = sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
   save(muse.maf_case_list_unique,
        file = sprintf("%s.muse.maf_case_list_unique.rdata", project_name))
-  # write.csv(RowData, file = "RowData.csv")
+  #write.csv(RowData, file = "RowData.csv")
   
   # load(sprintf("%s.%s.RowData.rdata", project_name, hugo_gene_name))
   # load(sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
@@ -129,6 +129,7 @@ GOF.TCGA.MakeColRow <- function(project_name,
     mutate(Protein_position = "multiple", 
            HGVSp_Short = "multiple", 
            IMPACT = "multiple")
+  DF2.1 <- unique(DF2.1)
   
   #create the single-mutation sample Coldata -----------
   DF3 <-muse.maf_target_gene%>% 

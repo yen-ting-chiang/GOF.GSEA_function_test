@@ -125,7 +125,7 @@ GOF.TCGA <- function(project_name,
        file = sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
   save(muse.maf_case_list_unique,
        file = sprintf("%s.muse.maf_case_list_unique.rdata", project_name))
-  # write.csv(RowData, file = "RowData.csv")
+  write.csv(RowData, file = "RowData.csv")
   
   # load(sprintf("%s.%s.RowData.rdata", project_name, hugo_gene_name))
   # load(sprintf("%s.muse.maf_%s.rdata", project_name, hugo_gene_name))
@@ -153,6 +153,7 @@ GOF.TCGA <- function(project_name,
     mutate(Protein_position = "multiple", 
            HGVSp_Short = "multiple", 
            IMPACT = "multiple")
+  DF2.1 <- unique(DF2.1)
   
   #create the single-mutation sample Coldata -----------
   DF3 <-muse.maf_target_gene%>% 
@@ -375,7 +376,7 @@ GOF.TCGA <- function(project_name,
   
 }
 
-GOF.TCGA(project_name = "UCEC", 
+GOF.TCGA(project_name = "GBM", 
          hugo_gene_name = "TP53",
          grouping_type = "IMPACT", 
          conpairing_type = "MODERATE", 
