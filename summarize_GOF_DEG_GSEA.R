@@ -1,13 +1,119 @@
+# #scripts
+# filenames  <- list.files(pattern = "*_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv" )
+# combo_data <- purrr::map_df(filenames, 
+#                             ~read.csv(.x, stringsAsFactors = FALSE) %>% 
+#                               mutate(filename = .x))
+# save(combo_data, 
+#      file = "combo_TP53_IMPACT_MODERATE_vs_WT_C5_positive.rdata")
+# wirte.csv(combo_data, 
+#      file = "combo_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv")
+# # combo_data2 <- do.call(rbind, lapply(filenames, function(x) 
+# #   cbind(read.csv(x, stringsAsFactors = FALSE), filename = x)))
+# 
+# GSEA_number = combo_data %>% 
+#   group_by(ID) %>%
+#   summarise(n())%>% 
+#   arrange(desc(n()))
+# 
+# save(GSEA_number, 
+#      file = "summary_TP53_IMPACT_MODERATE_vs_WT_C5_positive.rdata")
+# wirte.csv(GSEA_number, 
+#           file = "summary_TP53_IMPACT_MODERATE_vs_WT_C5_positive.csv")
 
-summarise.GOF.DEG.GSEA.result <- function()
+
+library(dplyr)
+setwd("C:/Users/dannyj/Documents/Rproject/GOF.GSEA_function_test/GOF_result")
+getwd()
+
+summarise.GOF.result <- function(hugo_gene_name,
+                                 grouping_type, 
+                                 conpairing_type, 
+                                 reference_type,
+                                 msigdb_type,
+                                 pos_or_neg)
 {
+  filenames  <- list.files(pattern = sprintf("*_%s_%s_%s_vs_%s_%s_%s.csv",
+                                             hugo_gene_name,
+                                             grouping_type, 
+                                             conpairing_type, 
+                                             reference_type,
+                                             msigdb_type,
+                                             pos_or_neg))
+  combo_data <- purrr::map_df(filenames, 
+                              ~read.csv(.x, stringsAsFactors = FALSE) %>% 
+                                mutate(filename = .x))
+  save(combo_data, 
+       file = sprintf("combo_%s_%s_%s_vs_%s_%s_%s.rdata",
+                      hugo_gene_name,
+                      grouping_type, 
+                      conpairing_type, 
+                      reference_type,
+                      msigdb_type,
+                      pos_or_neg))
+  write.csv(combo_data, 
+            file = sprintf("combo_%s_%s_%s_vs_%s_%s_%s.csv",
+                           hugo_gene_name,
+                           grouping_type, 
+                           conpairing_type, 
+                           reference_type,
+                           msigdb_type,
+                           pos_or_neg))
   
+  GSEA_number = combo_data %>% 
+    group_by(ID) %>%
+    summarise(n())%>% 
+    arrange(desc(n()))
+  
+  save(GSEA_number, 
+       file = sprintf("summary_%s_%s_%s_vs_%s_%s_%s.rdata",
+                      hugo_gene_name,
+                      grouping_type, 
+                      conpairing_type, 
+                      reference_type,
+                      msigdb_type,
+                      pos_or_neg))
+  write.csv(GSEA_number, 
+            file = sprintf("summary_%s_%s_%s_vs_%s_%s_%s.csv",
+                           hugo_gene_name,
+                           grouping_type, 
+                           conpairing_type, 
+                           reference_type,
+                           msigdb_type,
+                           pos_or_neg))
 }
 
-getwd()
-setwd("C:/Users/dannyj/Documents/Rproject/GOF.GSEA_function_test/C5_positive")
-files <- list.files(path=
-                      "C:/Users/dannyj/Documents/Rproject/GOF.GSEA_function_test/C5_positive")
+summarise.GOF.result(hugo_gene_name = "TP53",
+                     grouping_type = "IMPACT", 
+                     conpairing_type = "MODERATE", 
+                     reference_type = "WT",
+                     msigdb_type = "C3",
+                     pos_or_neg = "positive")
+
+msigdb_list <- c("H", "C1", "C2", "C3", "C4", "C5", "C6","C7","C8")
+
+lapply(msigdb_list,
+       summarise.GOF.result,
+       hugo_gene_name = "TP53",
+       grouping_type = "IMPACT", 
+       conpairing_type = "MODERATE", 
+       reference_type = "WT",
+       pos_or_neg = "positive")
+
+lapply(msigdb_list,
+       summarise.GOF.result,
+       hugo_gene_name = "TP53",
+       grouping_type = "IMPACT", 
+       conpairing_type = "MODERATE", 
+       reference_type = "WT",
+       pos_or_neg = "negative")
+
+
+
+
+
+
+
+
 results_bind <- sapply(files, function(x) mget(read.csv(x)), simplify = TRUE)
 
 #summarize DEG data-------------------------------------------------------
