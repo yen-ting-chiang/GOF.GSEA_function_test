@@ -39,9 +39,12 @@ summarise.GOF.result <- function(hugo_gene_name,
                                              reference_type,
                                              msigdb_type,
                                              pos_or_neg))
-  combo_data <- purrr::map_df(filenames, 
-                              ~read.csv(.x, stringsAsFactors = FALSE) %>% 
+  combo_data <- purrr::map_df(filenames,
+                              ~read.csv(.x, stringsAsFactors = FALSE,
+                                        colClasses = "character") %>%
                                 mutate(filename = .x))
+
+  
   save(combo_data, 
        file = sprintf("combo_%s_%s_%s_vs_%s_%s_%s.rdata",
                       hugo_gene_name,
