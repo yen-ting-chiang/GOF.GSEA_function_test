@@ -1,5 +1,5 @@
 library(dplyr)
-setwd("C:/Users/dannyj/Documents/Rproject/GOF.GSEA_function_test/GOF_result")
+setwd("C:/Users/dannyj/Documents/Rproject/GOF.GSEA_function_test/GOF_result2")
 getwd()
 
 #summarize GSEA data-------------------------------------------------------
@@ -24,7 +24,7 @@ summarise.GSEA.result <- function(hugo_gene_name,
 
   
   save(combo_data, 
-       file = sprintf("combo_%s_%s_%s_vs_%s_%s_%s.rdata",
+       file = sprintf("%s_%s_%s_vs_%s_%s_%s_combo.rdata",
                       hugo_gene_name,
                       grouping_type, 
                       conpairing_type, 
@@ -32,7 +32,7 @@ summarise.GSEA.result <- function(hugo_gene_name,
                       msigdb_type,
                       pos_or_neg))
   write.csv(combo_data, 
-            file = sprintf("combo_%s_%s_%s_vs_%s_%s_%s.csv",
+            file = sprintf("%s_%s_%s_vs_%s_%s_%s_combo.csv",
                            hugo_gene_name,
                            grouping_type, 
                            conpairing_type, 
@@ -46,7 +46,7 @@ summarise.GSEA.result <- function(hugo_gene_name,
     arrange(desc(n()))
   
   save(GSEA_number, 
-       file = sprintf("summary_%s_%s_%s_vs_%s_%s_%s.rdata",
+       file = sprintf("%s_%s_%s_vs_%s_%s_%s_summary.rdata",
                       hugo_gene_name,
                       grouping_type, 
                       conpairing_type, 
@@ -54,7 +54,7 @@ summarise.GSEA.result <- function(hugo_gene_name,
                       msigdb_type,
                       pos_or_neg))
   write.csv(GSEA_number, 
-            file = sprintf("summary_%s_%s_%s_vs_%s_%s_%s.csv",
+            file = sprintf("%s_%s_%s_vs_%s_%s_%s_summary.csv",
                            hugo_gene_name,
                            grouping_type, 
                            conpairing_type, 
@@ -103,7 +103,7 @@ summarise.DEG.result <- function(hugo_gene_name,
                                 distinct(ENSEMBL, .keep_all = TRUE))
   
   save(combo_data, 
-       file = sprintf("DEG_combo_%s_%s_%s_vs_%s_%s.rdata",
+       file = sprintf("%s_%s_%s_vs_%s_%s_DEG_combo.rdata",
                       hugo_gene_name,
                       grouping_type, 
                       conpairing_type, 
@@ -111,7 +111,7 @@ summarise.DEG.result <- function(hugo_gene_name,
                       pos_or_neg))
   
   write.csv(combo_data, 
-            file = sprintf("DEG_combo_%s_%s_%s_vs_%s_%s.csv",
+            file = sprintf("%s_%s_%s_vs_%s_%s_DEG_combo.csv",
                            hugo_gene_name,
                            grouping_type, 
                            conpairing_type, 
